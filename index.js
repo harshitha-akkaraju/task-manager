@@ -31,7 +31,7 @@ const retrieveToken = (tokenPath) => {
     return token;
 }
 
-const createRecurringTask = (taskName, taskList, dayOfMonth) => {
+const createRecurringTask = async (taskName, taskList, dayOfMonth) => {
     const credentials = retrieveCredentials(CREDENTIALS_PATH);
 
     const authorize = (credentials, callback) => {
@@ -63,19 +63,19 @@ const createRecurringTask = (taskName, taskList, dayOfMonth) => {
 
         rl.question('Enter the code from that page here: ', (code) => {
             rl.close();
-            oAuth2Client.getToken(code, (err, token) => {
+            oAuth2Client.getToken(code, async (err, token) => {
                 if (err) {
                     console.log('[index.js] error retrieving access token', err);
                     process.exit();
                 }
 
                 oAuth2Client.setCredentials(token);
-                callback(oAuth2Client, taskName, taskList, dayOfMonth);
+                await callback(oAuth2Client, taskName, taskList, dayOfMonth);
             });
         });
     }
 
-    authorize(credentials, createTask);
+    await authorize(credentials, createTask);
 };
 
-createRecurringTask("Buy Groceries", "Today's Tasks", 4)
+// createRecurringTask("title", "taskListName", dayOfMonth);
