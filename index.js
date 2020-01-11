@@ -4,6 +4,8 @@ const { google } = require('googleapis');
 const readline = require('readline');
 const fs = require('fs');
 
+const { createTask } = require('./manager');
+
 const TOKEN_PATH = `/token.json`; // delete file if scope changes
 const CREDENTIALS_PATH = `./credentials.json`;
 const SCOPES = ['https://www.googleapis.com/auth/tasks']; // scope gives read/write access to tasks
@@ -29,73 +31,51 @@ const retrieveToken = (tokenPath) => {
     return token;
 }
 
-const authorize = (credentials, callback) => {
-    const { client_secret, client_id, redirect_uris } = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(
-        client_id, client_secret, redirect_uris[0]);
+const createRecurringTask = (taskName, taskList, dayOfMonth) => {
+    const credentials = retrieveCredentials(CREDENTIALS_PATH);
 
-    let token = {};
-    try {
-        token = retrieveToken(TOKEN_PATH);
-        oAuth2Client.setCredentials(token);
-        callback(oAuth2Client);
-    } catch (error) {
-        generateNewToken(oAuth2Client, callback);
-    }
-}
+    const authorize = (credentials, callback) => {
+        const { client_secret, client_id, redirect_uris } = credentials.installed;
+        const oAuth2Client = new google.auth.OAuth2(
+            client_id, client_secret, redirect_uris[0]);
 
-const generateNewToken = (oAuth2Client, callback) => {
-    const authUrl = oAuth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: SCOPES,
-    });
-
-    console.log('[index.js] authorize this app by visiting this url:', authUrl);
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-    });
-
-    rl.question('Enter the code from that page here: ', (code) => {
-        rl.close();
-        oAuth2Client.getToken(code, (err, token) => {
-            if (err) {
-                console.log('[index.js] error retrieving access token', err);
-                process.exit();
-            }
-
+        let token = {};
+        try {
+            token = retrieveToken(TOKEN_PATH);
             oAuth2Client.setCredentials(token);
-            // store the token to disk for later program executions
-            fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-                if (err) return console.error(err);
-                console.log('[index.js] token stored to', TOKEN_PATH);
-            });
             callback(oAuth2Client);
-        });
-    });
-}
-
-/**
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
- */
-const listTasks = (auth) => {
-    const service = google.tasks({ version: 'v1', auth });
-    service.tasklists.list({
-        maxResults: 10,
-    }, (err, res) => {
-        if (err) return console.error('The API returned an error: ' + err);
-        const taskLists = res.data.items;
-        if (taskLists) {
-            console.log('Task lists:');
-            taskLists.forEach((taskList) => {
-                console.log(`${taskList.title} (${taskList.id})`);
-            });
-        } else {
-            console.log('No task lists found.');
+        } catch (error) {
+            generateNewToken(oAuth2Client, callback);
         }
-    });
-}
+    }
 
-const credentials = retrieveCredentials(CREDENTIALS_PATH);
+    const generateNewToken = (oAuth2Client, callback) => {
+        const authUrl = oAuth2Client.generateAuthUrl({
+            access_type: 'offline',
+            scope: SCOPES,
+        });
 
-authorize(credentials, listTasks);
+        console.log('[index.js] authorize this app by visiting this url:', authUrl);
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+        });
+
+        rl.question('Enter the code from that page here: ', (code) => {
+            rl.close();
+            oAuth2Client.getToken(code, (err, token) => {
+                if (err) {
+                    console.log('[index.js] error retrieving access token', err);
+                    process.exit();
+                }
+
+                oAuth2Client.setCredentials(token);
+                callback(oAuth2Client, taskName, taskList, dayOfMonth);
+            });
+        });
+    }
+
+    authorize(credentials, createTask);
+};
+
+createRecurringTask("Buy Groceries", "Today's Tasks", 4)
